@@ -62,14 +62,14 @@
                 class="w-full sm:w-24 inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 @click="editCertificate(cert)" 
                 >
-                  Edit
+                  UPDATE
                 </button>
-                <button 
+                <!-- <button 
                 class="w-full sm:w-24 inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 @click="updateCertificate(cert)" 
                 >
                   Update
-                </button>
+                </button> -->
                 <button 
                 class="w-full sm:w-24 inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 @click="deleteCertificate(cert)"

@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue'
 import ScrollingAnnouncement from '../components/ScrollingAnnouncement.vue'
+import DashboardSummary from '../components/DashboardSummary.vue'
 import { useUsers } from '../stores/user'
 import { computed } from 'vue'
 
@@ -25,6 +26,10 @@ const announcement = computed(() => store.announcement || [])
           </div>
         </div>
       </div>
+    </div>
+    <div>
+      <DashboardSummary />
+      <!-- Other dashboard components would go here -->
     </div>
   </AuthenticatedLayout>
 </template>

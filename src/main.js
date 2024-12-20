@@ -4,11 +4,16 @@ import App from './App.vue'
 import router from './router'
 import './index.css'
 import piniaPersistedState from 'pinia-plugin-persistedstate'
-import { getEchoInstance } from './lib/echo'
+import { initializeEcho } from './services/echo'
 
+const token = localStorage.getItem('authToken')
+if(token)
+{
+    initializeEcho(token)
+}
 const app = createApp(App)
 const pinia = createPinia()
-const echo = getEchoInstance();
+
 
 app.use(
     pinia.use(({ store }) => {
@@ -17,5 +22,4 @@ app.use(
     pinia.use(piniaPersistedState),
 )
 app.use(router)
-app.provide('echo', echo);
 app.mount('#app')

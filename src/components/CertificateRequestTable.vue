@@ -47,7 +47,7 @@
           <table class="w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th
+                 <th
                   v-for="column in columns"
                   :key="column.key"
                   scope="col"
@@ -62,17 +62,17 @@
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr 
-                v-for="request in paginatedRequests" 
+              <tr
+                v-for="request in paginatedRequests"
                 :key="request.id"
                 class="hover:bg-gray-50 cursor-pointer"
                 @click="navigateToDetails(request.id)"
               >
                 <td class="px-3 py-4 whitespace-nowrap text-sm">
-                  <div class="font-medium text-gray-900">{{ request.certificate_id }}</div>
+                  <div class="font-medium text-gray-900">{{ request.id }}</div>
                 </td>
-                <td class="px-3 py-4 whitespace-nowrap text-sm">
-                  <div class="font-medium text-gray-900">{{ getCertificateName(request.certificate_id) }}</div>
+                 <td class="px-3 py-4 whitespace-nowrap text-sm">
+                    <div class="font-medium text-gray-900">{{ request.certificate.name}}</div>
                 </td>
                 <td class="px-3 py-4 whitespace-nowrap text-sm">
                   <span class="flex items-center justify-center">
@@ -131,14 +131,15 @@ const router = useRouter()
 
 const certificateRequests = computed(() => store.certificateRequests)
 
+
 const columns = [
-  { key: 'certificate_id', label: 'Certificate ID' },
-  { key: 'certificate_name', label: 'Certificate Name' },
+    { key: 'id', label: 'ID' },
+    { key: 'certificate_name', label: 'Certificate Name' },
   { key: 'status', label: 'Status' },
 ]
 
 const search = ref('')
-const sortColumn = ref('certificate_id')
+const sortColumn = ref('id') // Start with id sorting
 const sortDirection = ref('asc')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -146,24 +147,34 @@ const pageSizeOptions = [5, 10, 20, 50]
 const filterStatus = ref('all')
 
 const filteredRequests = computed(() => {
-  let filtered = certificateRequests.value.filter(request =>
-    request.certificate_id.toString().toLowerCase().includes(search.value.toLowerCase()) ||
-    request.certificate_name.toLowerCase().includes(search.value.toLowerCase()) ||
-    request.status.toLowerCase().includes(search.value.toLowerCase())
-  )
+    let filtered = certificateRequests.value.filter(request => {
+        return (
+          request.id.toString().toLowerCase().includes(search.value.toLowerCase()) ||
+            request.status.toLowerCase().includes(search.value.toLowerCase())
+        );
+    });
+
 
   if (filterStatus.value !== 'all') {
     filtered = filtered.filter(request => request.status === filterStatus.value)
   }
-
   return filtered
 })
 
 const sortedRequests = computed(() => {
   return [...filteredRequests.value].sort((a, b) => {
-    if (a[sortColumn.value] < b[sortColumn.value]) return sortDirection.value === 'asc' ? -1 : 1
-    if (a[sortColumn.value] > b[sortColumn.value]) return sortDirection.value === 'asc' ? 1 : -1
-    return 0
+    if (sortColumn.value === 'certificate_name') {
+        const nameA = getCertificateName(a.certificate_id);
+        const nameB = getCertificateName(b.certificate_id);
+
+      if (nameA < nameB) return sortDirection.value === 'asc' ? -1 : 1;
+      if (nameA > nameB) return sortDirection.value === 'asc' ? 1 : -1;
+      return 0;
+    }else {
+      if (a[sortColumn.value] < b[sortColumn.value]) return sortDirection.value === 'asc' ? -1 : 1
+      if (a[sortColumn.value] > b[sortColumn.value]) return sortDirection.value === 'asc' ? 1 : -1
+      return 0
+    }
   })
 })
 
@@ -177,14 +188,16 @@ const totalPages = computed(() => Math.ceil(filteredRequests.value.length / page
 const startIndex = computed(() => (currentPage.value - 1) * pageSize.value)
 const endIndex = computed(() => Math.min(startIndex.value + pageSize.value, filteredRequests.value.length))
 
+
 const sortBy = (column) => {
-  if (sortColumn.value === column) {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortColumn.value = column
-    sortDirection.value = 'asc'
-  }
+    if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+    } else {
+        sortColumn.value = column
+        sortDirection.value = 'asc'
+    }
 }
+
 
 const getStatusIcon = (status) => {
   switch (status) {
@@ -192,7 +205,7 @@ const getStatusIcon = (status) => {
       return ClockIcon
     case 'approved':
       return CheckCircleIcon
-    case 'rejected':
+    case 'reject':
       return XCircleIcon
     default:
       return null
@@ -211,14 +224,8 @@ const getStatusColor = (status) => {
       return 'text-gray-500'
   }
 }
-const getCertificateName = (certificateId) => {
-  const cert = store.certificates.find(cert => cert.id === certificateId);
-  return cert ? cert.name : 'Unknown Certificate';
-};
-
 
 const navigateToDetails = (id) => {
   router.push({ name: 'CertificateRequestDetails', params: { id: id } })
 }
 </script>
-

@@ -149,6 +149,15 @@ const routes = [
         },
     },
     {
+        path: '/message',
+        name: 'Message',
+        component: () => import('@/pages/MessagingPage.vue'),
+        meta: {
+            title: 'Messages',
+            guard: 'auth',
+        },
+    },
+    {
         path: '/password-reset/:token',
         name: 'password-reset',
         component: () => import('@/pages/auth/ResetPassword.vue'),

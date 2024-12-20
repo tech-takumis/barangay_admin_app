@@ -8,7 +8,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p class="text-lg font-semibold">Certificate ID: {{ request.certificate_id }}</p>
-              <p class="text-lg">Certificate Name: {{ getCertificateName(request.certificate_id) }}</p>
+              <p class="text-lg">Certificate Name: {{ request.certificate.name}}</p>
               <p class="text-lg">Status: 
                 <span :class="getStatusColor(request.status)">
                   {{ request.status }}
@@ -70,7 +70,7 @@
       <template #body>
         <div class="space-y-4">
           <p><strong>User:</strong> {{ getUserName(request?.user_id) }}</p>
-          <p><strong>Certificate Name:</strong> {{ getCertificateName(request?.certificate_id) }}</p>
+          <p><strong>Certificate Name:</strong> {{ request.certificate.name }}</p>
           <div>
             <label for="document_file" class="block text-sm font-medium text-gray-700">Upload Document</label>
             <input 
@@ -148,11 +148,6 @@ const goBack = () => {
   router.push({ name: 'certificate_requests' })
 }
 
-const getCertificateName = (certificateId) => {
-  const cert = store.certificates.find(cert => cert.id === certificateId);
-  return cert ? cert.name : 'Unknown Certificate';
-};
-
 const getUserName = (user_id) =>{
   const user = store.users.find(u => u.id === user_id)
   return user ? user.name : 'Guest'
@@ -197,7 +192,6 @@ const rejectCertificate = async () => {
   if (request.value && request.value.status === 'pending') {
     try {
       await store.rejectCertificate(request.value.id)
-      request.value.status = 'rejected'
     } catch (error) {
       console.error('Error rejecting certificate:', error)
       // Handle error (e.g., show error message to user)

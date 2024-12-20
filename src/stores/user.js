@@ -1,10 +1,7 @@
 import { axios, setBearerToken } from '@/lib/axios'
-import { useStorage } from '@vueuse/core'
 import { defineStore, acceptHMRUpdate } from 'pinia'
-import Announcement from '../components/Announcement.vue'
-import swal from 'sweetalert'
-import { all } from 'axios'
-
+import { initializeEcho,disconnectEcho} from '../services/echo'
+import { Flashlight } from 'lucide-vue-next'
 const csrf = () => axios.get('/sanctum/csrf-cookie')
 
 export const useUsers = defineStore('users', {
@@ -13,8 +10,6 @@ export const useUsers = defineStore('users', {
         users: [],
         authStatus: [],
         officials: [],
-        authStaffMessage: [],
-        userMessage: [],
         authUserNotification: [],
         announcement: [],
         certificates: [],
@@ -25,17 +20,23 @@ export const useUsers = defineStore('users', {
             title: '',
             message: '',
         },
-        listenersInitialized: false,
-        userActions: []
+        userActions: [],
+        echoNotificationListener: false,
+        totalPending:0,
+        totalApproved: 0,
+        totalReject: 0,
+        totalUsers: 0,
+        totalStaff: 0,
+        isRefreshing: false,
     }),
 
     getters: {
         authUser: state => state.authStatus === 204 || state.authStatus === 200,
         authUserData: state => state.userData,
         hasActivityLogs: state => Object.keys(state.activityLogs).length > 0,
+        hasStatistic: state => state.totalApproved > 0 || state.totalPending > 0 || state.totalReject > 0,
         hasUserMessage: state => Object.keys(state.userMessage).length > 0,
         hasUsers: state => Object.keys(state.users).length > 0,
-        hasStaffMessageAndNotification: state => Object.keys(state.authStaffMessage).length > 0,
         hasAnnoucement: state => Object.keys(state.announcement).length > 0,
         hasCertificate: state => Object.keys(state.certificates).length > 0,
         hasCertificateRequest: state => Object.keys(state.certificateRequests).length > 0,
@@ -78,8 +79,61 @@ export const useUsers = defineStore('users', {
             this.certificates = this.certificates.filter(cert => cert.id !== certificate.id)
             this.showNotification('Certificate Deleted', `The certificate "${certificate.certificate_name}" has been deleted.`)
         },
+        handleDeleteCertificateRequest(certificate){
+            this.certificateRequests = this.certificateRequests.filter(cert => cert.id !== certificate.id);
+            this.showNotification('Cancel Certificate Request',`User Delete certificate request`);
+        },
+        async getCertificateRequestStatistic(status){
+            try {
+                const response = await axios.get(`/api/stats/${status}`)
+                const data  = response.data.stats
+
+                if(status === 'pending'){
+                    this.totalPending = data[0].get_certificate_request_count
+                }else if (status === 'approved') {
+                    this.totalApproved = data[0].get_certificate_request_count
+                } else {
+                    this.totalReject = data[0].get_certificate_request_count
+                }
+                
+            } catch (error) {
+                console.log("Error while retreiving the total pending certificate request")
+            }   
+        },
+        async getStaffStatistic()
+        {
+            try {
+                const response = await axios.get('/api/staffs/stats')
+                const data = response.data
+                this.totalStaff = data[0].count
+            } catch (error) {
+                console.log("Error while fetching user and staff statistic")
+            }
+        },
+        async getUserStatistic()
+        {
+            try {
+                const response = await axios.get('/api/users/stats')
+                const data = response.data
+                this.totalUsers = data[0].count
+            } catch (error) {
+                console.log("Error while fetching user and staff statistic")
+            }
+        },
+        async refreshMaterializedView() {
+            this.isRefreshing = true
+            try {
+              const response = await axios.get('/api/refresh-materialize-view')
+              this.showNotification('Refresh Materialize view', 'Refresh materialize view successfully')
+              await this.getActivityLogs()
+            } catch (error) {
+              console.error('Error refreshing materialized view:', error)
+            } finally {
+              this.isRefreshing = false
+            }
+        },
         async getData() {
-            axios
+             axios
                 .get('/api/user')
                 .then(response => {
                     this.userData = response.data
@@ -91,7 +145,7 @@ export const useUsers = defineStore('users', {
                 })
         },
         async getUserActions() {
-            axios
+            await axios
                 .get('/api/user/actions')
                 .then(response => {
                     this.userActions = response.data
@@ -125,42 +179,20 @@ export const useUsers = defineStore('users', {
                 })
 
         },
-        async getStaffMessage() {
-            await axios
-                .get('/api/staff/messages')
-                .then(res => {
-                    this.authStaffMessage = res.data
-                })
-                .catch(error => {
-                    if (error.response.status !== 409) throw error
-
-                    this.router.push('/verify-email')
-                })
+        async sendMessage(form){
+            try {
+                const response = await axios.post('/api/staff/messages',form.value)
+            } catch (error) {
+                console.log("Error while sending message") 
+            }
         },
-        async getUserMessage() {
-            await axios
-                .get('/api/user/all/messages')
-                .then(res => {
-                    this.userMessage = res.data
-                })
-                .catch(error => {
-                    if (error.response.status !== 409) throw error
-
-                    this.router.push('/verify-email')
-                })
-        },
-        async sendMessage(form) {
-
-            await axios
-                .post('/api/staff/messages', form.value)
-                .then(res => {
-
-                })
-                .catch(error => {
-                    if (error.response.status != 409) throw error
-                    console.log("Error when sending message in user store certificate function")
-                    this.router.push({ name: 'dashboard' })
-                })
+        async getMessage(receiver_id){
+            try {
+                const response = await axios.get(`/api/staff/message/${receiver_id}`)
+                return response.data
+            } catch (error) {
+                console.log("Can't find user message")
+            }
         },
         async getOfficials() {
             await axios
@@ -189,7 +221,7 @@ export const useUsers = defineStore('users', {
 
             processing.value = true
 
-            axios
+            await axios
                 .post('/user/reset-password', form.value)
                 .then(response => {
                     this.router.push(
@@ -230,16 +262,20 @@ export const useUsers = defineStore('users', {
                     this.router.push({ name: 'dashboard' })
                 })
         },
-        async getCertificate(id) {
+        async getCertificate(certificateId) {
             try {
-                const response = await axios.get(`/api/certificates/${id}`);
-                console.log("API Response:", response.data.certificate);
-                return response.data.certificate; 
-            } catch (error) {
-                if (error.response && error.response.status !== 409) throw error;
-                console.log("Error when fetching certificate in user store certificate function");
-                this.router.push({ name: 'dashboard' });
-            }
+                const response = await axios.get(`/api/certificates/${certificateId}`);
+                    const newCertificate = response.data.certificate;
+                    // Add the new certificate to the existing array, or replace if exists
+                    const certificateIndex = this.certificates.findIndex(cert => cert.id === newCertificate.id);
+                    if (certificateIndex !== -1) {
+                        this.certificates.splice(certificateIndex, 1, newCertificate);
+                    } else {
+                        this.certificates.push(newCertificate);
+                    }
+                } catch (error) {
+                    console.error('Error fetching certificate:', error);
+                }
         },
         async getCertificateRequests() {
             try {
@@ -266,7 +302,7 @@ export const useUsers = defineStore('users', {
                 await axios.post(`/api/certificate-requests/${id}/reject`)
                 const index = this.certificateRequests.findIndex(req => req.id === id)
                 if (index !== -1) {
-                    this.certificateRequests[index].status = 'rejected'
+                    this.certificateRequests[index].status = 'reject'
                 }
             } catch (error) {
                 console.error('Error rejecting certificate:', error)
@@ -351,9 +387,13 @@ export const useUsers = defineStore('users', {
                 .then(response => {
                     this.authStatus = response.status
                     processing.value = false
-                    setBearerToken(response.data.token)
-                    localStorage.setItem('authToken',response.data.token)
-                    
+
+                    const token = response.data.token
+                    setBearerToken(token)
+                    localStorage.setItem('authToken',token)
+
+                    initializeEcho(token)
+
                     this.router.push({ name: 'dashboard' })
                 })
                 .catch(error => {
@@ -389,7 +429,8 @@ export const useUsers = defineStore('users', {
                 .post('/staff/logout')
                 .then(() => {
                     this.$reset()
-
+                    localStorage.removeItem('authToken')
+                    disconnectEcho()
                     this.router.push({ name: 'welcome' })
                 })
                 .catch(error => {

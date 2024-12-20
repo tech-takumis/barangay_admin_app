@@ -73,14 +73,14 @@ const sortKey = ref('id');
 const sortOrder = ref('asc');
 
 const actionTypes = computed(() => {
-  return [...new Set(userActions.value.map(action => action.action))];
+  return [...new Set(userActions.value.map(action => action.action_type))];
 });
 
 const sortedAndFilteredActions = computed(() => {
   let result = userActions.value;
 
   if (filterType.value) {
-    result = result.filter(action => action.action === filterType.value);
+    result = result.filter(action => action.action_type === filterType.value);
   }
 
   result.sort((a, b) => {

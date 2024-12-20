@@ -2,6 +2,8 @@
   <div class="container mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold mb-6">Activity Logs</h1>
 
+    <RefreshMaterializedView />
+
     <!-- Search and Filters -->
     <div class="mb-6 space-y-4">
       <!-- Search Bar -->
@@ -141,6 +143,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUsers } from '../stores/user';
+import RefreshMaterializedView from './RefreshMaterializedView.vue';
 
 const store = useUsers()
 

@@ -85,7 +85,8 @@
           </div>
         </div>
       </main>
-      <NotificationModal :is-open="store.notificationModal.isOpen" :title="store.notificationModal.title"
+      <NotificationModal 
+      :is-open="store.notificationModal.isOpen" :title="store.notificationModal.title"
         :message="store.notificationModal.message" @close="store.closeNotification" />
     </div>
   </div>
@@ -93,7 +94,7 @@
 
 <script setup>
 
-import { ref, computed, onMounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, watch, inject, onUnmounted } from 'vue'
 import { useUsers } from '@/stores/user'
 import ApplicationLogo from '@/components/ApplicationLogo.vue'
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/vue'
@@ -107,13 +108,13 @@ import NotificationModal from '../components/NotificationModal.vue'
 
 import { LogOutIcon, Mic2, XIcon } from 'lucide-vue-next'
 import { ActivityIcon, ActivitySquareIcon } from 'lucide-vue-next'
+import { getEchoInstance } from '../services/echo'
 
 
-const echo = inject('echo');
+const echo = getEchoInstance()
 const store = useUsers()
 const sidebarOpen = ref(window.innerWidth >= 768)
 const showMessages = ref(false)
-
 const totalMessage = computed(() => store.authStaffMessage.length)
 
 const filteredChildren = (item) => {
@@ -132,7 +133,6 @@ const toggleMessages = () => {
 }
 
 const submitLogout = () => {
-  echo.leave('staff.notifications')
   store.logout()
 }
 
@@ -147,8 +147,6 @@ const navItems = [
       { name: 'Certificates', href: '/certificates', icon: ClipboardDocumentIcon, is_staff: true }
     ]
   },
-  { name: 'Messages', href: '#', icon: ChatBubbleLeftRightIcon },
-  { name: 'Notifications', href: '#', icon: BellIcon },
   {
     name: 'Staff',
     icon: UserGroupIcon,
@@ -158,15 +156,12 @@ const navItems = [
     ]
   },
   { name: 'activity logs', href: '/activity/logs', icon: ActivitySquareIcon, is_staff: false },
-  { name: 'User Actions', href: '/users/actions', icon: UserGroupIcon, is_staff: false },
+  // { name: 'User Actions', href: '/users/actions', icon: UserGroupIcon, is_staff: false },
   { name: 'Add Announcement', href: '/announcement', icon: Mic2, is_staff: false },
 ]
 
-
-onMounted(async () => {
-  if (!store.hasUserData) {
-    await store.getData()
-
+const subscribeToNotificationChannel = () => {
+  if(echo && !store.echoNotificationListener){
     echo.private('staff.notifications')
       .listen('NewOfficialNotification', (event) => {
         store.handleNewStaff(event)
@@ -184,38 +179,54 @@ onMounted(async () => {
         store.handleCertificateDeleted(event)
       })
       .listen('CertificateRequestEvent', (event) => {
-        console.log("Certificate request", event)
-        store.certificateRequests.unshift(event)
+          store.totalPending = store.totalPending + 1
+           store.certificateRequests.unshift(event);
+        })
+      .listen('StaffMessageEvent', (event) => {
+        console.log("Staff message", event)
       })
+      .listen('DeleteCertificateRequestEvent', (event) => {
+        store.certificateRequests.length - 1
+        store.handleDeleteCertificateRequest(event)
+      })
+      store.echoNotificationListener = true
   }
-  await store.getStaffMessage()
-  await store.getOfficials()
-  await store.getCertificates()
-  await store.getUserMessage()
-  await store.getLatestAnnouncement()
-  await store.getCertificateRequests()
-  await store.getAllUsers()
-  await store.getUserActions()
+} 
+
+
+
+
+onMounted(async () => {
+  if (!store.hasUserData) {
+    await store.getData()
+  }
+  if(!store.hasUsers)
+  {
+    await store.getAllUsers()
+  }
+  if(!store.hasAnnoucement){
+    await store.getLatestAnnouncement()
+  }
+  if(!store.hasOfficials){
+    await store.getOfficials()
+  }
+  if(!store.hasCertificate){
+    await store.getCertificates()
+  }
+  if(!store.hasCertificateRequest){
+    await store.getCertificateRequests()
+  }
+
+  if(!store.hasStatistic){
+    await store.getCertificateRequestStatistic('pending')
+    await store.getCertificateRequestStatistic('reject')
+    await store.getCertificateRequestStatistic('approved')
+    await store.getUserStatistic()
+    await store.getStaffStatistic()
+  }
+  subscribeToNotificationChannel()
 
 })
-
-watch(() => store.userData?.id, (newId, oldId) => {
-  if (oldId) {
-    echo.leave(`user.certificate.approved.${oldId}`);
-  }
-  if (newId) {
-    echo.private(`chat.${store.userData.id}`)
-      .listen('MessageEvent', (event) => {
-        store.authStaffMessage.unshift(event)
-      })
-      .listen('UserChatEvent', (event) => {
-        store.userMessage.unshift(event)
-      })
-  } else {
-    console.warn("Skipping channel subscription due to undefined user ID.");
-  }
-});
-
 
 </script>
 
